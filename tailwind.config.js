@@ -5,7 +5,11 @@ export default {
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
-    extend: {},
+    extend: {
+      animation: {
+        shimmer: 'shimmer 2s infinite',
+      },
+    },
   },
   plugins: [],
 }
