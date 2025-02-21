@@ -1,50 +1,90 @@
-import React, { useCallback, useState } from 'react';
-import type { ProcessingResult } from '../types';
-import { PreviewContainer } from './PreviewContainer';
+import React, { useCallback, useState } from "react";
+import type { ProcessingResult } from "../types";
+import { PreviewContainer } from "./PreviewContainer";
 
 interface ImageGridProps {
   imageUrl: string;
   result: ProcessingResult | null;
   isProcessing: boolean;
-  onImageSelect?: (url: string) => void;
+  onImageSelect: (url: string) => void;
   onUrlChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onReset: () => void;
+  onEnhance: () => Promise<void>;
 }
 
-export function ImageGrid({ imageUrl, result, isProcessing, onImageSelect, onUrlChange, onReset }: ImageGridProps) {
+export function ImageGrid({
+  imageUrl,
+  result,
+  isProcessing,
+  onImageSelect,
+  onUrlChange,
+  onReset,
+  onEnhance,
+}: ImageGridProps) {
   const [isComparing, setIsComparing] = useState(false);
+  const [isEnhancing, setIsEnhancing] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
-  const handleFileUpload = useCallback(async (file: File) => {
+  const handleEnhance = async () => {
+    setIsEnhancing(true);
     try {
-      // TODO: Replace with actual upload API endpoint
-      const formData = new FormData();
-      formData.append('image', file);
-
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const data = await response.json();
-      
-      if (data.success && data.url) {
-        onImageSelect?.(data.url);
-      } else {
-        throw new Error(data.error || 'Upload failed');
-      }
+      await onEnhance();
     } catch (error) {
-      console.error('Upload failed:', error);
-      // You might want to show an error message to the user
+      console.error("Enhancement failed:", error);
+    } finally {
+      setIsEnhancing(false);
     }
-  }, [onImageSelect]);
+  };
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('image/')) {
-      handleFileUpload(file);
-    }
-  }, [handleFileUpload]);
+  const handleFileUpload = useCallback(
+    async (file: File) => {
+      setIsUploading(true);
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append(
+        "upload_preset",
+        `${import.meta.env.VITE_CLOUDINARY_PRESET}`
+      );
+      try {
+        const response = await fetch(
+          `https://api.cloudinary.com/v1_1/${
+            import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
+          }/image/upload`,
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error?.message || "Upload failed");
+        }
+
+        onImageSelect(data.secure_url);
+
+        return data.secure_url;
+      } catch (error) {
+        console.error("Cloudinary upload failed:", error);
+        throw error;
+      } finally {
+        setIsUploading(false);
+      }
+    },
+    [onImageSelect]
+  );
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith("image/")) {
+        handleFileUpload(file);
+      }
+    },
+    [handleFileUpload]
+  );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -75,8 +115,18 @@ export function ImageGrid({ imageUrl, result, isProcessing, onImageSelect, onUrl
                   onClick={onReset}
                   className="text-gray-400 hover:text-red-400 transition-colors duration-200 flex items-center gap-2 text-sm"
                 >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    />
                   </svg>
                 </button>
               )}
@@ -102,7 +152,9 @@ export function ImageGrid({ imageUrl, result, isProcessing, onImageSelect, onUrl
                     <div className="w-full border-t border-gray-600"></div>
                   </div>
                   <div className="relative flex justify-center text-xs">
-                    <span className="px-2 text-gray-400 bg-gray-800">or drop image here</span>
+                    <span className="px-2 text-gray-400 bg-gray-800">
+                      or drop image here
+                    </span>
                   </div>
                 </div>
 
@@ -127,11 +179,51 @@ export function ImageGrid({ imageUrl, result, isProcessing, onImageSelect, onUrl
                     <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-emerald-500/10 group-hover:from-emerald-500/10 group-hover:to-emerald-500/20 transition-all duration-300" />
                     <div className="absolute inset-1 border-2 border-dashed border-emerald-500/20 group-hover:border-emerald-500/40 rounded-lg transition-colors duration-300" />
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 group-hover:text-emerald-400 transition-colors duration-300">
-                      <svg className="w-8 h-8 mb-2 opacity-50 group-hover:opacity-75 transition-opacity duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                      </svg>
-                      <p className="text-sm font-medium">Drop image here</p>
-                      <p className="text-xs opacity-75 mt-1">or click to browse</p>
+                      {isUploading ? (
+                        <>
+                          <svg
+                            className="animate-spin h-8 w-8 mb-2 opacity-75"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
+                          </svg>
+                          <p className="text-sm font-medium">Uploading...</p>
+                        </>
+                      ) : (
+                        <>
+                          <svg
+                            className="w-8 h-8 mb-2 opacity-50 group-hover:opacity-75 transition-opacity duration-300"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={1.5}
+                              d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                            />
+                          </svg>
+                          <p className="text-sm font-medium">Drop image here</p>
+                          <p className="text-xs opacity-75 mt-1">
+                            or click to browse
+                          </p>
+                        </>
+                      )}
                     </div>
                   </label>
                 </div>
@@ -152,20 +244,88 @@ export function ImageGrid({ imageUrl, result, isProcessing, onImageSelect, onUrl
         <div className="bg-gray-800 rounded-2xl shadow-xl p-8 transition-all duration-300 hover:shadow-2xl border border-gray-700">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium text-gray-200">Output Image</h3>
+              <h3 className="text-lg font-medium text-gray-200">
+                Output Image
+              </h3>
               <div className="flex items-center gap-3">
                 {result?.outputUrl && (
-                  <button
-                    onClick={() => setIsComparing(true)}
-                    className="flex items-center gap-2 px-3 py-1 text-sm font-medium text-blue-400 bg-blue-500/20 rounded-full hover:bg-blue-500/30 transition-colors duration-200"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                    </svg>
-                    Compare
-                  </button>
+                  <>
+                    <button
+                      onClick={handleEnhance}
+                      disabled={isEnhancing}
+                      className={`flex items-center gap-2 px-3 py-1 text-sm font-medium ${
+                        isEnhancing
+                          ? "bg-emerald-500/20 text-emerald-400 cursor-not-allowed"
+                          : "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
+                      } rounded-full transition-colors duration-200`}
+                    >
+                      {isEnhancing ? (
+                        <>
+                          <svg
+                            className="animate-spin h-4 w-4"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
+                          </svg>
+                          Enhancing...
+                        </>
+                      ) : (
+                        <>
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M13 10V3L4 14h7v7l9-11h-7z"
+                            />
+                          </svg>
+                          Enhance
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => setIsComparing(true)}
+                      className="flex items-center gap-2 px-3 py-1 text-sm font-medium text-blue-400 bg-blue-500/20 rounded-full hover:bg-blue-500/30 transition-colors duration-200"
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
+                        />
+                      </svg>
+                      Compare
+                    </button>
+                  </>
                 )}
-                <span className="px-3 py-1 text-sm font-medium text-indigo-400 bg-indigo-500/20 rounded-full">AI Generated</span>
+                <span className="px-3 py-1 text-sm font-medium text-indigo-400 bg-indigo-500/20 rounded-full">
+                  AI Generated
+                </span>
               </div>
             </div>
             <div className="rounded-xl overflow-hidden shadow-lg aspect-square">
@@ -187,8 +347,18 @@ export function ImageGrid({ imageUrl, result, isProcessing, onImageSelect, onUrl
                     </div>
                   ) : (
                     <div className="text-center text-gray-400">
-                      <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
+                      <svg
+                        className="w-12 h-12 mx-auto mb-3 opacity-50"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={1.5}
+                          d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"
+                        />
                       </svg>
                       <p>AI generated image will appear here</p>
                     </div>
