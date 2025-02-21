@@ -36,9 +36,26 @@ export function ImageGrid({
     }
   };
 
+  const handleDownload = async (url: string) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = "enhanced-image.jpg";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error("Download failed:", error);
+    }
+  };
+
   const handleFileUpload = useCallback(
     async (file: File) => {
-      setIsUploading(true);
+        setIsUploading(true);
 
       const formData = new FormData();
       formData.append("file", file);
@@ -328,13 +345,34 @@ export function ImageGrid({
                 </span>
               </div>
             </div>
-            <div className="rounded-xl overflow-hidden shadow-lg aspect-square">
+            <div className="relative rounded-xl overflow-hidden shadow-lg aspect-square">
               {result?.outputUrl ? (
-                <img
-                  src={result.outputUrl}
-                  alt="Output"
-                  className="w-full h-full object-cover"
-                />
+                <>
+                  <img
+                    src={result.outputUrl}
+                    alt="Output"
+                    className="w-full h-full object-cover"
+                  />
+                  <button
+                    onClick={() => handleDownload(result.outputUrl!)}
+                    className="absolute bottom-4 right-4 p-2 rounded-full bg-gray-800/50 hover:bg-gray-700/50 text-white transition-colors duration-200"
+                    title="Download image"
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                      />
+                    </svg>
+                  </button>
+                </>
               ) : (
                 <div className="w-full h-full bg-gray-700/50 flex items-center justify-center">
                   {isProcessing ? (

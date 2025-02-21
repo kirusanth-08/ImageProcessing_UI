@@ -42,26 +42,28 @@ const ImageComparisonSlider: React.FC<ImageComparisonSliderProps> = ({ before, a
         onTouchStart={handleMove}
         onTouchMove={handleMove}
       >
-        {/* Before image */}
-        <img 
-          src={before} 
-          alt="Before" 
-          className="absolute top-0 left-0 w-full h-full object-contain transition-opacity duration-300"
-        />
         
-        {/* After image with clip path */}
-        <div 
-          className="absolute top-0 left-0 w-full h-full"
-          style={{
-            clipPath: `inset(0 ${100 - sliderPos}% 0 0)`
-          }}
-        >
           <img
             src={after}
             alt="After"
             className="w-full h-full object-contain"
             onLoad={() => setIsAfterLoaded(true)}
           />
+
+          {/* After image with clip path */}
+          <div 
+            className="absolute top-0 left-0 w-full h-full"
+            style={{
+              clipPath: `inset(0 ${100 - sliderPos}% 0 0)`
+            }}
+          >
+            
+        {/* Before image */}
+        <img 
+          src={before} 
+          alt="Before" 
+          className="absolute top-0 left-0 w-full h-full object-contain transition-opacity duration-300"
+        />
         </div>
 
         {/* Image labels */}

@@ -67,7 +67,7 @@ export function InputContainer({
     <div className="bg-gray-800 rounded-2xl shadow-xl p-6 transition-all duration-300 hover:shadow-2xl border border-gray-700">
       <form onSubmit={onSubmit} className="space-y-6">
         {/* Text-Based Prompts */}
-        <div className="space-y-4">
+        {/* <div className="space-y-4">
           <h3 className="text-lg font-medium text-gray-200">Text Prompts</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
@@ -95,13 +95,13 @@ export function InputContainer({
               />
             </div>
           </div>
-        </div>
+        </div> */}
 
         {/* General Settings */}
         <div className="space-y-4">
           <h3 className="text-lg font-medium text-gray-200">General Settings</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Slider
+            {/* <Slider
               label="CFG"
               icon="⚙️"
               value={settings.cfg}
@@ -109,7 +109,7 @@ export function InputContainer({
               min={0}
               max={5}
               tooltip="Configuration scale factor"
-            />
+            /> */}
             <Slider
               label="Sampling Steps"
               icon="🔄"
@@ -129,11 +129,20 @@ export function InputContainer({
               max={1}
               tooltip="Denoising strength"
             />
+            <Slider
+              label="LoRA Strength Model"
+              icon="💪"
+              value={settings.loraStrengthModel}
+              onChange={(value) => onSettingChange('loraStrengthModel', value)}
+              min={0}
+              max={5}
+              tooltip="LoRA model strength"
+            />
           </div>
         </div>
 
         {/* LoRA Settings */}
-        <div className="space-y-4">
+        {/* <div className="space-y-4">
           <h3 className="text-lg font-medium text-gray-200">LoRA Settings</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Slider
@@ -155,10 +164,10 @@ export function InputContainer({
               tooltip="LoRA clip strength"
             />
           </div>
-        </div>
+        </div> */}
 
         {/* Detail Settings */}
-        <div className="space-y-4">
+        {/* <div className="space-y-4">
           <h3 className="text-lg font-medium text-gray-200">Detail Settings</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
@@ -229,7 +238,7 @@ export function InputContainer({
               />
             </div>
           </div>
-        </div>
+        </div> */}
 
         {/* Masking Features */}
         <div>
