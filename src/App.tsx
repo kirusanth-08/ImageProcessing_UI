@@ -1,20 +1,41 @@
-import React, { useState } from 'react';
-import { ComfyDeploy } from 'comfydeploy';
-import type { ImageProcessingOptions, ProcessingResult, ProcessingSettings } from './types';
-import { InputContainer } from './components/InputContainer';
-import { ImageGrid } from './components/ImageGrid';
-import { PreviewContainer } from './components/PreviewContainer';
+import React, { useState, useEffect } from "react";
+import { Client } from "@gradio/client";
+import { Cloudinary } from '@cloudinary/url-gen';
+import { auto } from '@cloudinary/url-gen/actions/resize';
+import { autoGravity } from '@cloudinary/url-gen/qualifiers/gravity';
+
+import type {
+  ImageProcessingOptions,
+  ProcessingResult,
+  ProcessingSettings,
+} from "./types";
+import { InputContainer } from "./components/InputContainer";
+import { ImageGrid } from "./components/ImageGrid";
 
 declare global {
   interface ImportMeta {
     env: {
-      VITE_COMFY_DEPLOY_API_KEY: string;
+      VITE_HUGGING_FACE_TOKEN: string;
     };
   }
 }
 
+// Initialize Cloudinary
+const cld = new Cloudinary({
+  cloud: {
+    cloudName: 'dwvo85oaa',
+    apiKey: '433595794257618',
+    apiSecret: 'J6_l-hxy3afInfLSqOdpwNvjoQQ'
+  }
+});
+
+// Add this type at the top with other imports
+type GradioResponse = {
+  data: Array<{ url: string }>;
+};
+
 function App() {
-  const [imageUrl, setImageUrl] = useState('');
+  const [imageUrl, setImageUrl] = useState("");
   const [options, setOptions] = useState<ImageProcessingOptions>({
     skin: false,
     nose: false,
@@ -44,34 +65,63 @@ function App() {
     loraStrengthModel: 1.0,
     loraStrengthClip: 1.0,
     confidence: 0.2,
-    detailMethod: 'VITMatte(local)',
+    detailMethod: "VITMatte(local)",
     detailErode: 6,
     detailDilate: 6,
     blackPoint: 0.1,
     whitePoint: 0.99,
-    positivePrompt: '',
-    negativePrompt: '',
+    positivePrompt: "",
+    negativePrompt: "",
   });
 
   const [result, setResult] = useState<ProcessingResult | null>(null);
+
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [cloudinaryUrl, setCloudinaryUrl] = useState<string | null>(null);
 
-  const cd = new ComfyDeploy({
-    bearer: import.meta.env.VITE_COMFY_DEPLOY_API_KEY,
-  });
-
-  const handleOptionChange = (key: keyof ImageProcessingOptions, value: boolean) => {
+  const handleOptionChange = (
+    key: keyof ImageProcessingOptions,
+    value: boolean
+  ) => {
     setOptions((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleSettingChange = (key: keyof ProcessingSettings, value: number | string) => {
+  const handleSettingChange = (
+    key: keyof ProcessingSettings,
+    value: number | string
+  ) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleReset = () => {
-    setImageUrl('');
+    setImageUrl("");
     setResult(null);
+  };
+
+  // Update the uploadToCloudinary function
+  const uploadToCloudinary = async (blob: Blob): Promise<string> => {
+    const formData = new FormData();
+    formData.append('file', blob);
+    formData.append('upload_preset', 'sirio_preset'); // Use a custom preset name
+    formData.append('cloud_name', 'dwvo85oaa');
+
+    try {
+      const response = await fetch(
+        'https://api.cloudinary.com/v1_1/dwvo85oaa/image/upload',
+        {
+          method: 'POST',
+          body: formData
+        }
+      );
+
+      const data = await response.json();
+      console.log('Cloudinary response:', data);
+      return data.secure_url;
+    } catch (error) {
+      console.error('Cloudinary upload failed:', error);
+      throw error;
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -84,98 +134,98 @@ function App() {
     }, 200);
 
     try {
-      const response = await cd.run.deployment.queue({
-        deploymentId: 'b8f6fd00-fe1c-4d7e-ba65-ef7bb8f6b497',
-        inputs: {
-          input_image: imageUrl,
-          skin: options.skin,
-          nose: options.nose,
-          eye_g: options.eye_g,
-          r_eye: options.r_eye,
-          l_eye: options.l_eye,
-          r_brow: options.r_brow,
-          l_brow: options.l_brow,
-          r_ear: options.r_ear,
-          l_ear: options.l_ear,
-          mouth: options.mouth,
-          u_lip: options.u_lip,
-          l_lip: options.l_lip,
-          hair: options.hair,
-          hat: options.hat,
-          ear_r: options.ear_r,
-          neck_l: options.neck_l,
-          neck: options.neck,
-          cloth: options.cloth,
-          background: options.background,
-          cfg: settings.cfg,
-          sampling_steps: settings.samplingSteps,
-          denoise: settings.denoise,
-          lora_strength_model: settings.loraStrengthModel,
-          lora_strength_clip: settings.loraStrengthClip,
-          confidence: settings.confidence,
-          detail_method: settings.detailMethod,
-          detail_erode: settings.detailErode,
-          detail_dilate: settings.detailDilate,
-          black_point: settings.blackPoint,
-          white_point: settings.whitePoint,
-          positive_prompt: settings.positivePrompt,
-          negative_prompt: settings.negativePrompt,
-        },
+      const app = await Client.connect("alexShangeeth/skin_06", {
+        hf_token: `hf_${import.meta.env.VITE_HUGGING_FACE_TOKEN}`,
       });
 
-      const data = {
-        runId: response.runId,
-      };
+      const response_0 = await fetch(imageUrl);
+      const inputImage = await response_0.blob();
 
-      setResult({
-        runId: data.runId,
-        outputUrl: null,
-        status: 'processing',
-      });
+      const result = await app.predict("/addition", [
+        inputImage,
+        settings.positivePrompt,
+        settings.negativePrompt,
+        settings.cfg,
+        settings.samplingSteps,
+        settings.denoise,
+        settings.loraStrengthModel,
+        settings.loraStrengthClip,
+        settings.confidence,
+        settings.detailMethod,
+        settings.detailErode,
+        settings.detailDilate,
+        settings.blackPoint,
+        settings.whitePoint,
+        options.background,
+        options.skin,
+        options.nose,
+        options.eye_g,
+        options.r_eye,
+        options.l_eye,
+        options.r_brow,
+        options.l_brow,
+        options.r_ear,
+        options.l_ear,
+        options.mouth,
+        options.u_lip,
+        options.l_lip,
+        options.hair,
+        options.hat,
+        options.ear_r,
+        options.neck_l,
+        options.neck,
+        options.cloth,
+      ]) as GradioResponse;
 
-      const pollInterval = setInterval(async () => {
-        const runn = response.runId;
-        const statusResponse = await cd.run.get({
-          runId: runn,
-        });
-
-        if (
-          statusResponse.status === 'success' &&
-          statusResponse.outputs?.[0]?.data?.images?.[0]?.url
-        ) {
-          clearInterval(pollInterval);
-          clearInterval(progressInterval);
-          setProgress(100);
-          setResult({
-            runId: data.runId,
-            outputUrl: statusResponse.outputs[0].data.images[0].url,
-            status: 'completed',
-          });
-          setIsProcessing(false);
-        } else if (statusResponse.status === 'error') {
-          clearInterval(pollInterval);
-          clearInterval(progressInterval);
-          setProgress(100);
-          setResult({
-            runId: data.runId,
-            outputUrl: null,
-            status: 'error',
-            error: 'Processing failed',
-          });
-          setIsProcessing(false);
+      const imageResponse = await fetch(result.data[0].url, {
+        headers: {
+          Authorization: `Bearer hf_${import.meta.env.VITE_HUGGING_FACE_TOKEN}`
         }
-      }, 4000);
+      });
+
+      if (!imageResponse.ok) {
+        throw new Error('Failed to fetch output image');
+      }
+
+      const imageBlob = await imageResponse.blob();
+      console.log(imageBlob)
+      
+      // Upload to Cloudinary
+      const cloudinaryImageUrl = await uploadToCloudinary(imageBlob);
+      setCloudinaryUrl(cloudinaryImageUrl);
+
+      // Create temporary blob URL for immediate display
+      const imageObjectUrl = URL.createObjectURL(imageBlob);
+
+      clearInterval(progressInterval);
+      setProgress(100);
+      setResult({
+        runId: Date.now().toString(),
+        outputUrl: imageObjectUrl, // You might want to use cloudinaryImageUrl here instead
+        status: 'completed'
+      });
+      setIsProcessing(false);
     } catch (error) {
+      console.error(error);
       clearInterval(progressInterval);
       setResult({
-        runId: '',
+        runId: "",
         outputUrl: null,
-        status: 'error',
-        error: 'Failed to process image',
+        status: "error",
+        error: "Failed to process image",
       });
       setIsProcessing(false);
     }
   };
+
+  useEffect(() => {
+    return () => {
+      // Cleanup blob URL when component unmounts
+      if (result?.outputUrl && result.outputUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(result.outputUrl);
+      }
+    };
+  }, [result?.outputUrl]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 py-12 px-4 sm:px-6 lg:px-8">
@@ -185,7 +235,8 @@ function App() {
             AI-Powered Skin Image Enhancement
           </h1>
           <p className="mt-3 text-lg text-gray-300">
-           Transform and enhance skin images with cutting-edge Sirio technology!
+            Transform and enhance skin images with cutting-edge Sirio
+            technology!
           </p>
         </div>
 
@@ -209,13 +260,6 @@ function App() {
             onOptionChange={handleOptionChange}
             onSettingChange={handleSettingChange}
           />
-
-          {imageUrl && (
-            <PreviewContainer
-              imageUrl={imageUrl}
-              result={result}
-            />
-          )}
         </div>
       </div>
     </div>

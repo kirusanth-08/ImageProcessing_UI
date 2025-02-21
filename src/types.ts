@@ -41,6 +41,7 @@ export interface ProcessingResult {
   outputUrl: string | null;
   status: 'processing' | 'completed' | 'error';
   error?: string;
+  cloudinaryUrl?: string;
 }
 
 export interface UploadResponse {
