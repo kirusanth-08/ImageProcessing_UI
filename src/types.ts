@@ -32,20 +32,24 @@ export interface ProcessingSettings {
   detailDilate: number;
   blackPoint: number;
   whitePoint: number;
-  positivePrompt: string;
-  negativePrompt: string;
+  // positivePrompt: string;
+  // negativePrompt: string;
 }
 
-export interface ProcessingResult {
-  runId: string;
-  outputUrl: string | null;
-  status: 'processing' | 'completed' | 'error';
-  error?: string;
-  cloudinaryUrl?: string;
+export type JobStatus = 'queued' | 'pending' | 'processing' | 'done' | 'error' | 'cancelled'
+
+export interface GenerateResponse {
+  jobId: string
+  status?: JobStatus
 }
 
-export interface UploadResponse {
-  url: string;
-  success: boolean;
-  error?: string;
+export interface StatusResponse {
+  status: JobStatus
+  progress?: number
+  imageBase64?: string
+  imageUrl?: string
+  delayTime?: number
+  executionTime?: number
+  error?: string
+  jobId?: string
 }

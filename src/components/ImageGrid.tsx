@@ -1,15 +1,12 @@
-import React, { useCallback, useState } from "react";
-import type { ProcessingResult } from "../types";
+import React, { useCallback, useRef, useState } from "react";
 import { PreviewContainer } from "./PreviewContainer";
 
 interface ImageGridProps {
   imageUrl: string;
-  result: ProcessingResult | null;
+  result: string;
   isProcessing: boolean;
   onImageSelect: (url: string) => void;
   onUrlChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onReset: () => void;
-  onEnhance: () => Promise<void>;
 }
 
 export function ImageGrid({
@@ -17,24 +14,10 @@ export function ImageGrid({
   result,
   isProcessing,
   onImageSelect,
-  onUrlChange,
-  onReset,
-  onEnhance,
 }: ImageGridProps) {
   const [isComparing, setIsComparing] = useState(false);
-  const [isEnhancing, setIsEnhancing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-
-  const handleEnhance = async () => {
-    setIsEnhancing(true);
-    try {
-      await onEnhance();
-    } catch (error) {
-      console.error("Enhancement failed:", error);
-    } finally {
-      setIsEnhancing(false);
-    }
-  };
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleDownload = async (url: string) => {
     try {
@@ -53,37 +36,25 @@ export function ImageGrid({
     }
   };
 
+  // Convert a File to a base64 data URL and pass it to onImageSelect
+  const fileToBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
   const handleFileUpload = useCallback(
     async (file: File) => {
-        setIsUploading(true);
-
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append(
-        "upload_preset",
-        `${import.meta.env.VITE_CLOUDINARY_PRESET}`
-      );
+      if (!file || !file.type.startsWith("image/")) return;
+      setIsUploading(true);
       try {
-        const response = await fetch(
-          `https://api.cloudinary.com/v1_1/${
-            import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
-          }/image/upload`,
-          {
-            method: "POST",
-            body: formData,
-          }
-        );
-
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.error?.message || "Upload failed");
-        }
-
-        onImageSelect(data.secure_url);
-
-        return data.secure_url;
+        const dataUrl = await fileToBase64(file);
+        onImageSelect(dataUrl); // This sets imageUrl in parent, which immediately shows the preview
+        return dataUrl;
       } catch (error) {
-        console.error("Cloudinary upload failed:", error);
+        console.error("Failed to load image:", error);
         throw error;
       } finally {
         setIsUploading(false);
@@ -97,7 +68,7 @@ export function ImageGrid({
       e.preventDefault();
       const file = e.dataTransfer.files[0];
       if (file && file.type.startsWith("image/")) {
-        handleFileUpload(file);
+        void handleFileUpload(file);
       }
     },
     [handleFileUpload]
@@ -107,12 +78,16 @@ export function ImageGrid({
     e.preventDefault();
   }, []);
 
-  if (isComparing && imageUrl && result?.outputUrl) {
+  const triggerFilePicker = () => {
+    fileInputRef.current?.click();
+  };
+
+  if (isComparing && imageUrl && (result as any)?.outputUrl) {
     return (
       <div className="space-y-4">
         <PreviewContainer
           imageUrl={imageUrl}
-          result={result}
+          result={result as any}
           onBack={() => setIsComparing(false)}
         />
       </div>
@@ -127,69 +102,29 @@ export function ImageGrid({
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-medium text-gray-200">Input Image</h3>
-              {imageUrl && (
-                <button
-                  onClick={onReset}
-                  className="text-gray-400 hover:text-red-400 transition-colors duration-200 flex items-center gap-2 text-sm"
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                    />
-                  </svg>
-                </button>
-              )}
             </div>
 
             {!imageUrl ? (
-              <div className="flex flex-col items-center justify-center space-y-4">
-                {/* URL Input */}
-                <div className="w-full max-w-sm">
-                  <input
-                    type="text"
-                    id="imageUrl"
-                    value={imageUrl}
-                    onChange={onUrlChange}
-                    className="w-full px-4 py-2 rounded-lg border bg-gray-700 text-white placeholder-gray-400 border-gray-600 focus:border-blue-500 focus:ring-blue-500 shadow-sm transition-colors duration-200 focus:ring-2 focus:ring-opacity-50 text-sm text-center"
-                    placeholder="Paste image URL here..."
-                  />
-                </div>
-
-                {/* Divider */}
-                <div className="w-full max-w-sm relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-gray-600"></div>
-                  </div>
-                  <div className="relative flex justify-center text-xs">
-                    <span className="px-2 text-gray-400 bg-gray-800">
-                      or drop image here
-                    </span>
-                  </div>
-                </div>
-
+              <div className="justify-center">
                 {/* Upload Area */}
-                <div className="w-full max-w-sm">
+                <div className="w-full h-full">
                   <label
+                    onClick={triggerFilePicker}
                     onDrop={handleDrop}
                     onDragOver={handleDragOver}
                     className="relative block w-full h-48 rounded-xl overflow-hidden group cursor-pointer"
                   >
                     <input
+                      ref={fileInputRef}
                       type="file"
                       className="hidden"
                       accept="image/*"
                       onChange={(e) => {
-                        const file = e.target.files?.[0];
+                        const file = e.currentTarget.files?.[0];
                         if (file) {
-                          handleFileUpload(file);
+                          void handleFileUpload(file);
+                          // Allow selecting the same file again
+                          e.currentTarget.value = "";
                         }
                       }}
                     />
@@ -218,7 +153,7 @@ export function ImageGrid({
                               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                             ></path>
                           </svg>
-                          <p className="text-sm font-medium">Uploading...</p>
+                          <p className="text-sm font-medium">Loading...</p>
                         </>
                       ) : (
                         <>
@@ -265,96 +200,22 @@ export function ImageGrid({
                 Output Image
               </h3>
               <div className="flex items-center gap-3">
-                {result?.outputUrl && (
-                  <>
-                    <button
-                      onClick={handleEnhance}
-                      disabled={isEnhancing}
-                      className={`flex items-center gap-2 px-3 py-1 text-sm font-medium ${
-                        isEnhancing
-                          ? "bg-emerald-500/20 text-emerald-400 cursor-not-allowed"
-                          : "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
-                      } rounded-full transition-colors duration-200`}
-                    >
-                      {isEnhancing ? (
-                        <>
-                          <svg
-                            className="animate-spin h-4 w-4"
-                            xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                          >
-                            <circle
-                              className="opacity-25"
-                              cx="12"
-                              cy="12"
-                              r="10"
-                              stroke="currentColor"
-                              strokeWidth="4"
-                            ></circle>
-                            <path
-                              className="opacity-75"
-                              fill="currentColor"
-                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                            ></path>
-                          </svg>
-                          Enhancing...
-                        </>
-                      ) : (
-                        <>
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M13 10V3L4 14h7v7l9-11h-7z"
-                            />
-                          </svg>
-                          Enhance
-                        </>
-                      )}
-                    </button>
-                    <button
-                      onClick={() => setIsComparing(true)}
-                      className="flex items-center gap-2 px-3 py-1 text-sm font-medium text-blue-400 bg-blue-500/20 rounded-full hover:bg-blue-500/30 transition-colors duration-200"
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
-                        />
-                      </svg>
-                      Compare
-                    </button>
-                  </>
-                )}
+                {(result as any)?.outputUrl && <span />}
                 <span className="px-3 py-1 text-sm font-medium text-indigo-400 bg-indigo-500/20 rounded-full">
                   AI Generated
                 </span>
               </div>
             </div>
             <div className="relative rounded-xl overflow-hidden shadow-lg aspect-square">
-              {result?.outputUrl ? (
+              {(result as any)?.outputUrl ? (
                 <>
                   <img
-                    src={result.outputUrl}
+                    src={(result as any).outputUrl}
                     alt="Output"
                     className="w-full h-full object-cover"
                   />
                   <button
-                    onClick={() => handleDownload(result.outputUrl!)}
+                    onClick={() => handleDownload((result as any).outputUrl!)}
                     className="absolute bottom-4 right-4 p-2 rounded-full bg-gray-800/50 hover:bg-gray-700/50 text-white transition-colors duration-200"
                     title="Download image"
                   >

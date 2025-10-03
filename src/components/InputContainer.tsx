@@ -8,9 +8,10 @@ interface InputContainerProps {
   settings: ProcessingSettings;
   isProcessing: boolean;
   progress: number;
-  onSubmit: (e: React.FormEvent) => void;
+  onSubmit: (e: React.FormEvent, isPro: boolean) => void;
   onOptionChange: (key: keyof ImageProcessingOptions, value: boolean) => void;
   onSettingChange: (key: keyof ProcessingSettings, value: number | string) => void;
+  // onCancel: () => void;
 }
 
 const Slider = ({ 
@@ -62,10 +63,11 @@ export function InputContainer({
   onSubmit,
   onOptionChange,
   onSettingChange,
+  // onCancel
 }: InputContainerProps) {
   return (
     <div className="bg-gray-800 rounded-2xl shadow-xl p-6 transition-all duration-300 hover:shadow-2xl border border-gray-700">
-      <form onSubmit={onSubmit} className="space-y-6">
+      <form className="space-y-6">
         {/* Text-Based Prompts */}
         {/* <div className="space-y-4">
           <h3 className="text-lg font-medium text-gray-200">Text Prompts</h3>
@@ -130,10 +132,10 @@ export function InputContainer({
               tooltip="Denoising strength"
             />
             <Slider
-              label="LoRA Strength Model"
+              label="CFG"
               icon="💪"
-              value={settings.loraStrengthModel}
-              onChange={(value) => onSettingChange('loraStrengthModel', value)}
+              value={settings.cfg}
+              onChange={(value) => onSettingChange('cfg', value)}
               min={0}
               max={5}
               tooltip="LoRA model strength"
@@ -357,7 +359,43 @@ export function InputContainer({
 
         <div className="flex justify-end pt-2">
           <button
-            type="submit"
+            onClick={(e) => onSubmit(e as React.FormEvent, true)}
+            disabled={isProcessing || !imageUrl}
+            className={`relative overflow-hidden px-6 py-2 rounded-lg text-white font-medium transition-all duration-300 mx-3 ${
+              isProcessing || !imageUrl
+                ? 'bg-gray-600 cursor-not-allowed'
+                : 'bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 hover:shadow-lg hover:shadow-indigo-500/25 transform hover:-translate-y-0.5'
+            }`}
+          >
+            <span className="relative flex items-center justify-center gap-2">
+              {isProcessing ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <span>Pro</span>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </>
+              )}
+            </span>
+            
+            {isProcessing && (
+              <div
+                style={{ width: `${progress}%` }}
+                className="absolute bottom-0 left-0 h-0.5 bg-violet-400/50 transition-all duration-200"
+              />
+            )}
+          </button>
+          <button
+            onClick={(e) => onSubmit(e as React.FormEvent, false)}
+            type="button"
             disabled={isProcessing || !imageUrl}
             className={`relative overflow-hidden px-6 py-2 rounded-lg text-white font-medium transition-all duration-300 ${
               isProcessing || !imageUrl
@@ -383,6 +421,7 @@ export function InputContainer({
                 </>
               )}
             </span>
+            
             {isProcessing && (
               <div
                 style={{ width: `${progress}%` }}

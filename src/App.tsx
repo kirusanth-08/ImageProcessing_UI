@@ -1,46 +1,31 @@
-import React, { useState, useEffect } from "react";
-import { Client } from "@gradio/client";
-import { Cloudinary } from "@cloudinary/url-gen";
-import { auto } from "@cloudinary/url-gen/actions/resize";
-import { autoGravity } from "@cloudinary/url-gen/qualifiers/gravity";
+import React, { useState, useEffect, useRef } from "react";
+import { fetchStatus, submitImage, cancelJob } from "./api";
 
 import type {
   ImageProcessingOptions,
-  ProcessingResult,
   ProcessingSettings,
+  JobStatus
 } from "./types";
 import { InputContainer } from "./components/InputContainer";
 import { ImageGrid } from "./components/ImageGrid";
 
-declare global {
-  interface ImportMeta {
-    env: {
-      VITE_HUGGING_FACE_TOKEN: string;
-      VITE_CLOUDINARY_PRESET: string;
-      VITE_CLOUDINARY_CLOUD_NAME: string;
-    };
-  }
-}
-
-// Initialize Cloudinary
-const cld = new Cloudinary({
-  cloud: {
-    cloudName: "dwvo85oaa",
-    apiKey: "433595794257618",
-    apiSecret: "J6_l-hxy3afInfLSqOdpwNvjoQQ",
-  },
-});
-
-// Add this type at the top with other imports
-type GradioResponse = {
-  data: Array<{ url: string }>;
-};
+const POLL_INTERVAL_MS = 2000;
 
 function App() {
   const [inputImage, setInputImage] = useState<string>("");
-  const [firstOutputImage, setFirstOutputImage] = useState<string | null>(null);
+  const [outputImage, setOutputImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [status, setStatus] = useState<JobStatus>("pending");
+  const [error, setError] = useState<string | null>(null);
+  const [imageBase64, setImageBase64] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+
+  // Refs for tracking polling state
+  const intervalRef = useRef<number | null>(null);
+  const isPollingRef = useRef(false);
+  const progressTimerRef = useRef<number | null>(null);
 
   const [options, setOptions] = useState<ImageProcessingOptions>({
     skin: false,
@@ -75,9 +60,7 @@ function App() {
     detailErode: 6,
     detailDilate: 6,
     blackPoint: 0.1,
-    whitePoint: 0.99,
-    positivePrompt: "",
-    negativePrompt: "",
+    whitePoint: 0.99
   });
 
   const handleOptionChange = (
@@ -94,147 +77,171 @@ function App() {
     setSettings((prev) => ({ ...prev, [key]: value }));
   };
 
-  // Create a result object based on the current state
-  const result: ProcessingResult | null = firstOutputImage
-    ? {
-        runId: Date.now().toString(),
-        outputUrl: firstOutputImage,
-        status: "completed",
-      }
-    : null;
+  // Cleanup function for all timers
+  const clearProgressTimers = () => {
+    if (progressTimerRef.current) {
+      clearInterval(progressTimerRef.current);
+      progressTimerRef.current = null;
+    }
+  };
 
-  const processImage = async (imageToProcess: string) => {
+  const clearProgress = () => {
+    clearProgressTimers();
+  };
+
+  const startProgressTimer = () => {
+    clearProgressTimers();
+    
+    // Start a progress timer that slowly increases progress
+    progressTimerRef.current = window.setInterval(() => {
+      setProgress((prev) => {
+        // Slowly increase progress to 90% while waiting
+        if (prev < 90) {
+          return prev + 0.5;
+        }
+        return prev;
+      });
+    }, 200);
+  };
+
+  const startPolling = () => {
+    if (isPollingRef.current) return;
+    isPollingRef.current = true;
+
+    // Immediately fetch status once, then set interval
+    void pollOnce();
+    intervalRef.current = window.setInterval(() => {
+      void pollOnce();
+    }, POLL_INTERVAL_MS);
+  };
+
+  const stopPolling = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    isPollingRef.current = false;
+  };
+
+  const pollOnce = async () => {
+    if (!jobId) return;
+    try {
+      const data = await fetchStatus(jobId);
+      setStatus(data.status || "pending");
+      
+      if (data.status === "done") {
+        setImageBase64(data.imageBase64 ?? null);
+        setImageUrl(data.imageUrl ?? null);
+        
+        if (data.imageBase64) {
+          setOutputImage(`data:image/png;base64,${data.imageBase64}`);
+        } else if (data.imageUrl) {
+          setOutputImage(data.imageUrl);
+        }
+        
+        setProgress(100);
+        setIsProcessing(false);
+      } else if (data.status === "error" || data.status === "cancelled") {
+        setError(data.error || "Generation failed");
+        setIsProcessing(false);
+      }
+    } catch (err: any) {
+      setError(err?.message || "Failed to fetch status");
+      setStatus("error");
+      setIsProcessing(false);
+    }
+  };
+
+  // Accept isPro and pass it down to submitImage
+  const processImage = async (imageToProcess: string, isPro: boolean) => {
     setIsProcessing(true);
     setProgress(0);
-
-    const progressInterval = setInterval(() => {
-      setProgress((prev) => (prev < 90 ? prev + 1 : prev));
-    }, 200);
+    setError(null);
+    setOutputImage(null);
+    setJobId(null);
+    setStatus("pending");
 
     try {
-      const app = await Client.connect("alexShangeeth/skin_06", {
-        hf_token: `hf_${import.meta.env.VITE_HUGGING_FACE_TOKEN}`,
-      });
-
-      const response_0 = await fetch(imageToProcess);
-      const imageBlob = await response_0.blob();
-
-      const result = await app.predict("/addition", [
-        imageBlob,
-        settings.positivePrompt,
-        settings.negativePrompt,
-        settings.cfg,
-        settings.samplingSteps,
-        settings.denoise,
-        settings.loraStrengthModel,
-        settings.loraStrengthClip,
-        settings.confidence,
-        settings.detailMethod,
-        settings.detailErode,
-        settings.detailDilate,
-        settings.blackPoint,
-        settings.whitePoint,
-        options.background,
-        options.skin,
-        options.nose,
-        options.eye_g,
-        options.r_eye,
-        options.l_eye,
-        options.r_brow,
-        options.l_brow,
-        options.r_ear,
-        options.l_ear,
-        options.mouth,
-        options.u_lip,
-        options.l_lip,
-        options.hair,
-        options.hat,
-        options.ear_r,
-        options.neck_l,
-        options.neck,
-        options.cloth,
-      ]) as GradioResponse;
-
-      const imageResponse = await fetch(result.data[0].url, {
-        headers: {
-          Authorization: `Bearer hf_${import.meta.env.VITE_HUGGING_FACE_TOKEN}`,
-        },
-      });
-
-      if (!imageResponse.ok) {
-        throw new Error("Failed to fetch output image");
-      }
-
-      const outputImageBlob = await imageResponse.blob();
-
-      // Upload to Cloudinary
-      const cloudinaryImageUrl = await uploadToCloudinary(outputImageBlob);
-      setFirstOutputImage(cloudinaryImageUrl);
-
-      clearInterval(progressInterval);
-      setProgress(100);
-      setIsProcessing(false);
-    } catch (error) {
+      const startResp = await submitImage(imageToProcess, options, settings, isPro);
+      
+      const newJobId = startResp.jobId;
+      if (!newJobId) throw new Error("Failed to start job");
+      
+      setJobId(newJobId);
+      setStatus(startResp.status || "queued");
+      
+      setTimeout(() => {
+        if (status !== "done" && status !== "error" && status !== "cancelled") {
+          startPolling();
+        }
+      }, 1000);
+    } catch (error: any) {
       console.error(error);
-      clearInterval(progressInterval);
-      setFirstOutputImage(null);
+      setError(error?.message || "Failed to submit image");
       setIsProcessing(false);
-      throw error;
+      setStatus("error");
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleCancel = async () => {
+    if (jobId) {
+      try {
+        await cancelJob(jobId);
+        setStatus("cancelled");
+      } catch (error) {
+        console.error("Failed to cancel job", error);
+      }
+    }
+  };
+
+  // Handle submit receives isPro from InputContainer buttons
+  const handleSubmit = async (e: React.FormEvent, isPro: boolean) => {
     e.preventDefault();
     if (!inputImage) return;
-    await processImage(inputImage);
+    await processImage(inputImage, isPro);
   };
 
-  const handleEnhance = async () => {
-    if (!firstOutputImage) return;
-    await processImage(firstOutputImage);
-  };
-
-  const handleReset = () => {
-    setInputImage("");
-    setFirstOutputImage(null);
-  };
-
-  const uploadToCloudinary = async (blob: Blob): Promise<string> => {
-    const formData = new FormData();
-    formData.append("file", blob);
-    formData.append("upload_preset", `${import.meta.env.VITE_CLOUDINARY_PRESET}`);
-
-    try {
-      const response = await fetch(
-        `https://api.cloudinary.com/v1_1/${
-          import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
-        }/image/upload`,
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error?.message || "Upload failed");
-      }
-
-      return data.secure_url;
-    } catch (error) {
-      console.error("Cloudinary upload failed:", error);
-      throw error;
-    }
-  };
-
+  // Effect to manage polling lifecycle
   useEffect(() => {
     return () => {
-      // Cleanup any blob URLs when component unmounts
-      if (firstOutputImage?.startsWith("blob:")) {
-        URL.revokeObjectURL(firstOutputImage);
+      stopPolling();
+      clearProgressTimers();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    // Start polling when we have a jobId and not done/error
+    if (!jobId) return;
+    if (status === "done" || status === "error" || status === "cancelled") return;
+    startPolling();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobId]);
+
+  useEffect(() => {
+    if (status === "queued" || status === "processing") {
+      startProgressTimer();
+    } else {
+      clearProgress();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
+
+  useEffect(() => {
+    // Stop polling when job completes, errors, or is cancelled
+    if (status === "done" || status === "error" || status === "cancelled") {
+      stopPolling();
+    }
+  }, [status]);
+
+  // Clean up blob URLs
+  useEffect(() => {
+    return () => {
+      if (outputImage?.startsWith("blob:")) {
+        URL.revokeObjectURL(outputImage);
       }
     };
-  }, [firstOutputImage]);
+  }, [outputImage]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 py-12 px-4 sm:px-6 lg:px-8">
@@ -251,12 +258,10 @@ function App() {
 
         <ImageGrid
           imageUrl={inputImage}
-          result={result}
+          result={outputImage || ''}
           isProcessing={isProcessing}
           onImageSelect={setInputImage}
           onUrlChange={(e) => setInputImage(e.target.value)}
-          onReset={handleReset}
-          onEnhance={handleEnhance}
         />
 
         <div className="space-y-8">
@@ -269,6 +274,8 @@ function App() {
             onSubmit={handleSubmit}
             onOptionChange={handleOptionChange}
             onSettingChange={handleSettingChange}
+            // onCancel={handleCancel}
+            // error={error}
           />
         </div>
       </div>
