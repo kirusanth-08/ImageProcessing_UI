@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { fetchStatus, submitImage, cancelJob } from "./api";
+import { fetchStatus, submitImage } from "./api";
 
 import type {
   ImageProcessingOptions,
@@ -18,9 +18,9 @@ function App() {
   const [progress, setProgress] = useState(0);
   const [jobId, setJobId] = useState<string | null>(null);
   const [status, setStatus] = useState<JobStatus>("pending");
-  const [error, setError] = useState<string | null>(null);
-  const [imageBase64, setImageBase64] = useState<string | null>(null);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  // const [error, setError] = useState<string | null>(null);
+  // const [imageBase64, setImageBase64] = useState<string | null>(null);
+  // const [imageUrl, setImageUrl] = useState<string | null>(null);
 
   // Refs for tracking polling state
   const intervalRef = useRef<number | null>(null);
@@ -130,8 +130,8 @@ function App() {
       setStatus(data.status || "pending");
       
       if (data.status === "done") {
-        setImageBase64(data.imageBase64 ?? null);
-        setImageUrl(data.imageUrl ?? null);
+        // setImageBase64(data.imageBase64 ?? null);
+        // setImageUrl(data.imageUrl ?? null);
         
         if (data.imageBase64) {
           setOutputImage(`data:image/png;base64,${data.imageBase64}`);
@@ -142,11 +142,11 @@ function App() {
         setProgress(100);
         setIsProcessing(false);
       } else if (data.status === "error" || data.status === "cancelled") {
-        setError(data.error || "Generation failed");
+        // setError(data.error || "Generation failed");
         setIsProcessing(false);
       }
     } catch (err: any) {
-      setError(err?.message || "Failed to fetch status");
+      // setError(err?.message || "Failed to fetch status");
       setStatus("error");
       setIsProcessing(false);
     }
@@ -156,7 +156,7 @@ function App() {
   const processImage = async (imageToProcess: string, isPro: boolean) => {
     setIsProcessing(true);
     setProgress(0);
-    setError(null);
+    // setError(null);
     setOutputImage(null);
     setJobId(null);
     setStatus("pending");
@@ -177,22 +177,22 @@ function App() {
       }, 1000);
     } catch (error: any) {
       console.error(error);
-      setError(error?.message || "Failed to submit image");
+      // setError(error?.message || "Failed to submit image");
       setIsProcessing(false);
       setStatus("error");
     }
   };
 
-  const handleCancel = async () => {
-    if (jobId) {
-      try {
-        await cancelJob(jobId);
-        setStatus("cancelled");
-      } catch (error) {
-        console.error("Failed to cancel job", error);
-      }
-    }
-  };
+  // const handleCancel = async () => {
+  //   if (jobId) {
+  //     try {
+  //       await cancelJob(jobId);
+  //       setStatus("cancelled");
+  //     } catch (error) {
+  //       console.error("Failed to cancel job", error);
+  //     }
+  //   }
+  // };
 
   // Handle submit receives isPro from InputContainer buttons
   const handleSubmit = async (e: React.FormEvent, isPro: boolean) => {
