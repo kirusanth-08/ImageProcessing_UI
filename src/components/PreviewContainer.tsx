@@ -126,4 +126,4 @@ export function PreviewContainer({ imageUrl, resultUrl, onBack }: PreviewContain
   );
 }
 
-export default ImageComparisonSlider;
+export default PreviewContainer;

@@ -200,7 +200,16 @@ export function ImageGrid({
                 Output Image
               </h3>
               <div className="flex items-center gap-3">
-                {result && <span />}
+                {result && (
+                  <button
+                    type="button"
+                    onClick={() => setIsComparing(true)}
+                    className="px-3 py-1 text-sm font-medium text-purple-300 bg-purple-500/20 rounded-full hover:bg-purple-500/30 transition-colors duration-200"
+                    title="Open comparison slider"
+                  >
+                    Compare
+                  </button>
+                )}
                 <span className="px-3 py-1 text-sm font-medium text-indigo-400 bg-indigo-500/20 rounded-full">
                   AI Generated
                 </span>
@@ -212,7 +221,9 @@ export function ImageGrid({
                   <img
                     src={result}
                     alt="Output"
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover cursor-zoom-in"
+                    onClick={() => setIsComparing(true)}
+                    title="Click to compare"
                   />
                   <button
                     onClick={() => handleDownload(result)}
@@ -232,6 +243,13 @@ export function ImageGrid({
                         d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
                       />
                     </svg>
+                  </button>
+                  <button
+                    onClick={() => setIsComparing(true)}
+                    className="absolute bottom-4 left-4 px-3 py-1 text-sm font-medium text-purple-300 bg-purple-500/20 rounded-full hover:bg-purple-500/30 transition-colors duration-200"
+                    title="Open comparison slider"
+                  >
+                    Compare
                   </button>
                 </>
               ) : (
