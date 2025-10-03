@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
-import type { ProcessingResult } from '../types';
 import ImageComparisonSlider from './ImageComparisonSlider';
 
 interface PreviewContainerProps {
   imageUrl: string;
-  result: ProcessingResult | null;
+  resultUrl: string | null;
   onBack?: () => void;
 }
 
-export function PreviewContainer({ imageUrl, result, onBack }: PreviewContainerProps) {
+export function PreviewContainer({ imageUrl, resultUrl, onBack }: PreviewContainerProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   const handleDownload = async (url: string) => {
@@ -28,13 +27,13 @@ export function PreviewContainer({ imageUrl, result, onBack }: PreviewContainerP
     }
   };
 
-  if (isFullscreen && result?.outputUrl) {
+  if (isFullscreen && resultUrl) {
     return (
       <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center">
         <div className="relative w-full h-full">
           <div className="absolute top-4 right-4 flex items-center gap-4 z-10">
             <button
-              onClick={() => handleDownload(result.outputUrl!)}
+              onClick={() => handleDownload(resultUrl)}
               className="p-2 rounded-full bg-gray-800/50 hover:bg-gray-700/50 text-white transition-colors duration-200"
               title="Download image"
             >
@@ -53,7 +52,7 @@ export function PreviewContainer({ imageUrl, result, onBack }: PreviewContainerP
             </button>
           </div>
           <div className="w-full h-full flex items-center justify-center p-8">
-            <ImageComparisonSlider before={imageUrl} after={result.outputUrl} />
+            <ImageComparisonSlider before={imageUrl} after={resultUrl} />
           </div>
         </div>
       </div>
@@ -62,12 +61,10 @@ export function PreviewContainer({ imageUrl, result, onBack }: PreviewContainerP
 
   return (
     <div className="bg-gray-800 rounded-2xl shadow-xl p-8 transition-all duration-300 hover:shadow-2xl border border-gray-700">
-      {result?.outputUrl ? (
+      {resultUrl ? (
         <>
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-medium text-gray-200">
-              Interactive Comparison
-            </h3>
+            <h3 className="text-lg font-medium text-gray-200">Interactive Comparison</h3>
             <div className="flex items-center gap-3">
               {onBack && (
                 <button
@@ -92,9 +89,9 @@ export function PreviewContainer({ imageUrl, result, onBack }: PreviewContainerP
             </div>
           </div>
           <div className="relative">
-            <ImageComparisonSlider before={imageUrl} after={result.outputUrl} />
+            <ImageComparisonSlider before={imageUrl} after={resultUrl} />
             <button
-              onClick={() => handleDownload(result.outputUrl!)}
+              onClick={() => handleDownload(resultUrl)}
               className="absolute bottom-4 right-4 p-2 rounded-full bg-gray-800/50 hover:bg-gray-700/50 text-white transition-colors duration-200"
               title="Download image"
             >
@@ -121,35 +118,12 @@ export function PreviewContainer({ imageUrl, result, onBack }: PreviewContainerP
             )}
           </div>
           <div className="rounded-xl overflow-hidden shadow-lg h-full">
-            <img
-              src={imageUrl}
-              alt="Original"
-              className="w-full h-full object-contain"
-            />
-          </div>
-        </div>
-      )}
-
-      {result?.status === 'error' && (
-        <div className="mt-6 p-4 bg-red-900/50 rounded-xl border border-red-700">
-          <div className="flex items-center">
-            <svg
-              className="w-5 h-5 text-red-400 mr-2"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            <p className="text-red-400 font-medium">{result.error}</p>
+            <img src={imageUrl} alt="Original" className="w-full h-full object-contain" />
           </div>
         </div>
       )}
     </div>
   );
 }
+
+export default ImageComparisonSlider;

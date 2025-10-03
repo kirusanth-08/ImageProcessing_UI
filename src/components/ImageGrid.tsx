@@ -3,7 +3,7 @@ import { PreviewContainer } from "./PreviewContainer";
 
 interface ImageGridProps {
   imageUrl: string;
-  result: string;
+  result: string; // URL or data URL string; empty string if none
   isProcessing: boolean;
   onImageSelect: (url: string) => void;
   onUrlChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -82,12 +82,12 @@ export function ImageGrid({
     fileInputRef.current?.click();
   };
 
-  if (isComparing && imageUrl && (result as any)?.outputUrl) {
+  if (isComparing && imageUrl && result) {
     return (
       <div className="space-y-4">
         <PreviewContainer
           imageUrl={imageUrl}
-          result={result as any}
+          resultUrl={result}
           onBack={() => setIsComparing(false)}
         />
       </div>
@@ -200,22 +200,22 @@ export function ImageGrid({
                 Output Image
               </h3>
               <div className="flex items-center gap-3">
-                {(result as any)?.outputUrl && <span />}
+                {result && <span />}
                 <span className="px-3 py-1 text-sm font-medium text-indigo-400 bg-indigo-500/20 rounded-full">
                   AI Generated
                 </span>
               </div>
             </div>
             <div className="relative rounded-xl overflow-hidden shadow-lg aspect-square">
-              {(result as any)?.outputUrl ? (
+              {result ? (
                 <>
                   <img
-                    src={(result as any).outputUrl}
+                    src={result}
                     alt="Output"
                     className="w-full h-full object-cover"
                   />
                   <button
-                    onClick={() => handleDownload((result as any).outputUrl!)}
+                    onClick={() => handleDownload(result)}
                     className="absolute bottom-4 right-4 p-2 rounded-full bg-gray-800/50 hover:bg-gray-700/50 text-white transition-colors duration-200"
                     title="Download image"
                   >
