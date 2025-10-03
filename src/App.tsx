@@ -248,12 +248,8 @@ function App() {
       <div className="max-w-7xl mx-auto space-y-8">
         <div className="text-center">
           <h1 className="text-4xl font-bold text-white tracking-tight">
-            AI-Powered Skin Image Enhancement
+            Skin fixer v2.0
           </h1>
-          <p className="mt-3 text-lg text-gray-300">
-            Transform and enhance skin images with cutting-edge Sirio
-            technology!
-          </p>
         </div>
 
         <ImageGrid
